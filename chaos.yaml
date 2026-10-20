@@ -1,0 +1,204 @@
+# chaos.yaml — fault-injection policies loaded by
+# com.sanedge.pointofsale.common.chaos.ChaosManager.
+#
+# All policies are DISABLED by default; flip `enabled: true` to activate and the
+# manager hot-reloads within ~5s (it watches this file's mtime).
+#
+# Point services at this file with CHAOS_CONFIG_PATH=/path/to/chaos.yaml.
+#
+# Types:
+#   kafka   — OutboxPublisher drop/reject/latency per topic
+#   grpc    — server-side latency or non-OK status per method
+#   http    — gateway REST faults
+#   cpu     — CPU pressure
+#   memory  — heap leak
+
+warmupDuration: "10s"
+enableDefaultIgnored: true
+
+policies:
+  # ═══════════════════════════════════════════════
+  # Kafka — email topic message drop / delay
+  # ═══════════════════════════════════════════════
+  - name: "kafka-auth-register-drop"
+    type: "kafka"
+    target: "email-service-topic-auth-register"
+    enabled: false
+    errorChance: 0.15
+    dropMessage: true
+    rejectMessage: false
+    latencyMs: 200
+
+  - name: "kafka-auth-forgot-password-delay"
+    type: "kafka"
+    target: "email-service-topic-auth-forgot-password"
+    enabled: false
+    errorChance: 0.2
+    dropMessage: false
+    rejectMessage: false
+    latencyMs: 1500
+
+  - name: "kafka-auth-verify-code-success-delay"
+    type: "kafka"
+    target: "email-service-topic-auth-verify-code-success"
+    enabled: false
+    errorChance: 0.15
+    dropMessage: false
+    rejectMessage: false
+    latencyMs: 1000
+
+  - name: "kafka-transaction-create-delay"
+    type: "kafka"
+    target: "email-service-topic-transaction-create"
+    enabled: false
+    errorChance: 0.2
+    dropMessage: false
+    rejectMessage: false
+    latencyMs: 2000
+
+  - name: "kafka-merchant-create-drop"
+    type: "kafka"
+    target: "email-service-topic-merchant-create"
+    enabled: false
+    errorChance: 0.15
+    dropMessage: true
+    rejectMessage: false
+    latencyMs: 300
+
+  - name: "kafka-merchant-update-status-delay"
+    type: "kafka"
+    target: "email-service-topic-merchant-update-status"
+    enabled: false
+    errorChance: 0.2
+    dropMessage: false
+    rejectMessage: false
+    latencyMs: 1000
+
+  - name: "kafka-merchant-document-create-drop"
+    type: "kafka"
+    target: "email-service-topic-merchant-document-create"
+    enabled: false
+    errorChance: 0.15
+    dropMessage: true
+    rejectMessage: false
+    latencyMs: 300
+
+  - name: "kafka-merchant-document-update-status-delay"
+    type: "kafka"
+    target: "email-service-topic-merchant-document-update-status"
+    enabled: false
+    errorChance: 0.15
+    dropMessage: false
+    rejectMessage: false
+    latencyMs: 1000
+
+  # ═══════════════════════════════════════════════
+  # gRPC — internal service-level chaos
+  # ═══════════════════════════════════════════════
+  - name: "grpc-auth-login-unavailable"
+    type: "grpc"
+    target: "pb.AuthService/LoginUser"
+    enabled: false
+    errorChance: 0.25
+    grpcStatus: "UNAVAILABLE"
+    errorMessage: "Simulated gRPC unavailability for LoginUser"
+    latencyMs: 250
+
+  - name: "grpc-auth-register-timeout"
+    type: "grpc"
+    target: "pb.AuthService/RegisterUser"
+    enabled: false
+    errorChance: 0.2
+    grpcStatus: "DEADLINE_EXCEEDED"
+    errorMessage: "Simulated gRPC deadline exceeded for RegisterUser"
+    latencyMs: 3000
+
+  - name: "grpc-merchant-command-error"
+    type: "grpc"
+    target: "pb.merchant.MerchantCommandService/*"
+    enabled: false
+    errorChance: 0.25
+    grpcStatus: "INTERNAL"
+    errorMessage: "Simulated merchant command failure"
+    latencyMs: 500
+
+  - name: "grpc-merchant-query-delay"
+    type: "grpc"
+    target: "pb.merchant.MerchantQueryService/*"
+    enabled: false
+    errorChance: 0.2
+    grpcStatus: "UNAVAILABLE"
+    errorMessage: "Simulated merchant query unavailability"
+    latencyMs: 800
+
+  - name: "grpc-transaction-create-error"
+    type: "grpc"
+    target: "pb.transaction.TransactionCommandService/*"
+    enabled: false
+    errorChance: 0.25
+    grpcStatus: "ABORTED"
+    errorMessage: "Simulated transaction command aborted"
+    latencyMs: 800
+
+  - name: "grpc-transaction-query-delay"
+    type: "grpc"
+    target: "pb.transaction.TransactionQueryService/*"
+    enabled: false
+    errorChance: 0.2
+    grpcStatus: "UNAVAILABLE"
+    errorMessage: "Simulated transaction query unavailability"
+    latencyMs: 1000
+
+  # ═══════════════════════════════════════════════
+  # HTTP — REST API (gateway module, /api/*)
+  # ═══════════════════════════════════════════════
+  - name: "http-auth-login-rate-limit"
+    type: "http"
+    target: "POST:/api/auth/login"
+    enabled: false
+    errorChance: 0.4
+    errorCode: 429
+    errorBody: '{"error":"too_many_requests","message":"Rate limit exceeded by chaos simulation"}'
+    latencyMs: 1000
+
+  - name: "http-auth-register-error"
+    type: "http"
+    target: "POST:/api/auth/register"
+    enabled: false
+    errorChance: 0.2
+    errorCode: 500
+    errorBody: '{"error":"internal_error","message":"Simulated chaos error on registration"}'
+    latencyMs: 800
+
+  - name: "http-merchant-create-error"
+    type: "http"
+    target: "POST:/api/merchants"
+    enabled: false
+    errorChance: 0.25
+    errorCode: 500
+    errorBody: '{"error":"internal_error","message":"Simulated chaos merchant creation failure"}'
+    latencyMs: 500
+
+  - name: "http-transaction-create-error"
+    type: "http"
+    target: "POST:/api/transactions"
+    enabled: false
+    errorChance: 0.25
+    errorCode: 500
+    errorBody: '{"error":"internal_error","message":"Simulated chaos transaction failure"}'
+    latencyMs: 800
+
+  # ═══════════════════════════════════════════════
+  # Infrastructure — CPU / Memory pressure
+  # ═══════════════════════════════════════════════
+  - name: "cpu-pressure-test"
+    type: "cpu"
+    enabled: false
+    cpuCores: 2
+    duration: "2m"
+
+  - name: "memory-leak-test"
+    type: "memory"
+    enabled: false
+    memoryMb: 100
+    duration: "2m"
